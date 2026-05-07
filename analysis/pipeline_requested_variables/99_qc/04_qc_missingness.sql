@@ -1,0 +1,15 @@
+SELECT 'subject_id' AS variable, COUNTIF(subject_id IS NULL) AS n_missing, SAFE_DIVIDE(COUNTIF(subject_id IS NULL), COUNT(*)) AS missing_fraction FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'hadm_id', COUNTIF(hadm_id IS NULL), SAFE_DIVIDE(COUNTIF(hadm_id IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'stay_id', COUNTIF(stay_id IS NULL), SAFE_DIVIDE(COUNTIF(stay_id IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'day_idx', COUNTIF(day_idx IS NULL), SAFE_DIVIDE(COUNTIF(day_idx IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'clinical_improvement_72h', COUNTIF(clinical_improvement_72h IS NULL), SAFE_DIVIDE(COUNTIF(clinical_improvement_72h IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'has_full_72h_label_window', COUNTIF(has_full_72h_label_window IS NULL), SAFE_DIVIDE(COUNTIF(has_full_72h_label_window IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'age', COUNTIF(age IS NULL), SAFE_DIVIDE(COUNTIF(age IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'sex', COUNTIF(sex IS NULL), SAFE_DIVIDE(COUNTIF(sex IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'race', COUNTIF(race IS NULL), SAFE_DIVIDE(COUNTIF(race IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'insurance', COUNTIF(insurance IS NULL), SAFE_DIVIDE(COUNTIF(insurance IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'microorganism', COUNTIF(microorganism IS NULL), SAFE_DIVIDE(COUNTIF(microorganism IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'infection_site', COUNTIF(infection_site IS NULL), SAFE_DIVIDE(COUNTIF(infection_site IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'SAPS', COUNTIF(SAPS IS NULL), SAFE_DIVIDE(COUNTIF(SAPS IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'SOFA_post_t0', COUNTIF(SOFA_post_t0 IS NULL), SAFE_DIVIDE(COUNTIF(SOFA_post_t0 IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'FiO2_t0', COUNTIF(FiO2_t0 IS NULL), SAFE_DIVIDE(COUNTIF(FiO2_t0 IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`;
