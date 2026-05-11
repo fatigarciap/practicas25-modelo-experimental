@@ -67,4 +67,4 @@ Checklist actualizado con el inventario real de BigQuery. No usar nombres fuera 
 | `vasopressor_dose_norepi_equiv_at_t0` | `vasoactive_agent` / `inputevents` | multiples | si | Pendiente equivalencias/unidades. |
 | `renal_replacement_therapy_t0` | `procedureevents` / `chartevents` | `itemid`, tiempos | si | Pendiente fuente/mapping validado. |
 | `FiO2_t0` | `daily_features_clean` | `FiO2_median` | si | Proxy basal `day_idx = 0`. |
-| `PaO2_FiO2_t0` | `sofa` o `labevents+chartevents` | `pao2fio2ratio_novent`, `pao2fio2ratio_vent` o itemids | si/parcial | Pendiente decision fuente. |
+| `PaO2_FiO2_t0` | `sofa` | `pao2fio2ratio_novent`, `pao2fio2ratio_vent`, `starttime`, `endtime` | si | Proxy basal SOFA en dia 0 desde T0; usar peor ratio por solapamiento temporal. |

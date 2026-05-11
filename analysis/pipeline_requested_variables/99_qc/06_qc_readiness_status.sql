@@ -25,6 +25,7 @@ WITH readiness AS (
   SELECT 'implemented', 'mechanical_ventilation' UNION ALL
   SELECT 'implemented', 'vasopressors' UNION ALL
   SELECT 'implemented_proxy', 'FiO2_t0' UNION ALL
+  SELECT 'implemented_proxy', 'PaO2_FiO2_t0' UNION ALL
   SELECT 'pending_clinical_codelist', 'resistance_phenotype_or_MDR' UNION ALL
   SELECT 'pending_clinical_codelist', 'true_clinical_infection_source' UNION ALL
   SELECT 'pending_clinical_codelist', 'source_control_done' UNION ALL
@@ -32,8 +33,7 @@ WITH readiness AS (
   SELECT 'pending_clinical_codelist', 'time_to_source_control_hours' UNION ALL
   SELECT 'pending_source_mapping', 'empiric_adequate_at_start' UNION ALL
   SELECT 'pending_source_mapping', 'vasopressor_dose_norepi_equiv_at_t0' UNION ALL
-  SELECT 'pending_source_mapping', 'renal_replacement_therapy_t0' UNION ALL
-  SELECT 'pending_source_mapping', 'PaO2_FiO2_t0'
+  SELECT 'pending_source_mapping', 'renal_replacement_therapy_t0'
 )
 SELECT
   status,

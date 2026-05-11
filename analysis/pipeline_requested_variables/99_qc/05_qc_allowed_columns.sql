@@ -14,7 +14,7 @@ WITH allowed_columns AS (
     'n_abx_at_start','spectrum_level_at_start','has_broad_at_start','has_gp_resistant_at_start','has_gn_mdr_at_start',
     'prior_antibiotics_before_start','infection_acquisition_type',
     'HR_post_t0','MAP_post_t0','RR_post_t0','SpO2_post_t0','Temp_post_t0','WBC_post_t0','Lactate_post_t0','Creatinine_post_t0','Bilirubin_post_t0',
-    'SAPS','SOFA_post_t0','mechanical_ventilation','vasopressors','FiO2_t0'
+    'SAPS','SOFA_post_t0','mechanical_ventilation','vasopressors','FiO2_t0','PaO2_FiO2_t0'
   ]) AS column_name
 ),
 actual_columns AS (

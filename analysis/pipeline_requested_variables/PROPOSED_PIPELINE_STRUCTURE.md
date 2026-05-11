@@ -121,6 +121,7 @@ No incluye variables internas del outcome:
 - `mechanical_ventilation`.
 - `vasopressors`.
 - `FiO2_t0` como proxy.
+- `PaO2_FiO2_t0` como `implemented_proxy`, derivado de SOFA en dia 0 desde T0.
 
 ## Variables No Incluidas Todavia
 
@@ -132,7 +133,6 @@ No incluye variables internas del outcome:
 - `empiric_adequate_at_start`
 - `vasopressor_dose_norepi_equiv_at_t0`
 - `renal_replacement_therapy_t0`
-- `PaO2_FiO2_t0`
 
 Estas quedan documentadas en `VARIABLE_READINESS_STATUS.md` y `VARIABLES_REQUIRING_EPIDEMIOLOGY_DEFINITION.md`.
 

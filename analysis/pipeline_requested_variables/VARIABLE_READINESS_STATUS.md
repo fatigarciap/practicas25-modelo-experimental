@@ -34,6 +34,7 @@ Incluye solo variables `implemented` e `implemented_proxy` aceptadas. No incluye
 | `polymicrobial_infection` | `0 para episodio indice monomicrobiano`; no cambia la cohorte. |
 | `infection_acquisition_type` | Tiempos de admision/UCI/cultivo. |
 | `FiO2_t0` | `daily_features_requested.FiO2_median` en `day_idx = 0`. |
+| `PaO2_FiO2_t0` | Proxy basal derivado desde `mimiciv_3_1_derived.sofa`, usando el peor ratio PaO2/FiO2 disponible en la ventana de dia 0 desde T0: `MIN(COALESCE(pao2fio2ratio_vent, pao2fio2ratio_novent))`. |
 
 ## Pending Clinical Codelist
 
@@ -52,7 +53,6 @@ No entran en la tabla final productiva:
 - `empiric_adequate_at_start`
 - `vasopressor_dose_norepi_equiv_at_t0`
 - `renal_replacement_therapy_t0`
-- `PaO2_FiO2_t0`
 
 ## QC Recomendado Adicional
 

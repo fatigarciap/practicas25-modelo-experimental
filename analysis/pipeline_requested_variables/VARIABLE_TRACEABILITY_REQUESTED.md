@@ -75,7 +75,7 @@ Las variables clinicas/laboratorio post-T0 usan opcion A: medianas diarias longi
 | `vasopressor_dose_norepi_equiv_at_t0` | predictor | `vasoactive_agent` / `inputevents` | dosis/equivalencias | `stay_id` | pending_source_mapping | No model-ready. |
 | `renal_replacement_therapy_t0` | predictor | `procedureevents` / `chartevents` | itemids/fuente | `stay_id` | pending_source_mapping | No model-ready. |
 | `FiO2_t0` | predictor | `daily_features_clean` | `FiO2_median` en `day_idx = 0` | `stay_id` | implemented_proxy | Proxy basal. |
-| `PaO2_FiO2_t0` | predictor | `sofa` o labs+chart | `pao2fio2ratio_novent/vent` o PaO2+FiO2 | `stay_id` | pending_source_mapping | Decision fuente pendiente. |
+| `PaO2_FiO2_t0` | predictor | `physionet-data.mimiciv_3_1_derived.sofa` | `MIN(COALESCE(pao2fio2ratio_vent, pao2fio2ratio_novent))` en ventana `day_idx = 0` | `stay_id` | implemented_proxy | Proxy SOFA basal; no emparejamiento manual PaO2 + FiO2. |
 
 ## Variables Internas Excluidas
 

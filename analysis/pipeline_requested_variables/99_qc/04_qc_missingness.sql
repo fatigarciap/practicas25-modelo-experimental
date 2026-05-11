@@ -12,4 +12,5 @@ UNION ALL SELECT 'microorganism', COUNTIF(microorganism IS NULL), SAFE_DIVIDE(CO
 UNION ALL SELECT 'infection_site', COUNTIF(infection_site IS NULL), SAFE_DIVIDE(COUNTIF(infection_site IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
 UNION ALL SELECT 'SAPS', COUNTIF(SAPS IS NULL), SAFE_DIVIDE(COUNTIF(SAPS IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
 UNION ALL SELECT 'SOFA_post_t0', COUNTIF(SOFA_post_t0 IS NULL), SAFE_DIVIDE(COUNTIF(SOFA_post_t0 IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
-UNION ALL SELECT 'FiO2_t0', COUNTIF(FiO2_t0 IS NULL), SAFE_DIVIDE(COUNTIF(FiO2_t0 IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`;
+UNION ALL SELECT 'FiO2_t0', COUNTIF(FiO2_t0 IS NULL), SAFE_DIVIDE(COUNTIF(FiO2_t0 IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`
+UNION ALL SELECT 'PaO2_FiO2_t0', COUNTIF(PaO2_FiO2_t0 IS NULL), SAFE_DIVIDE(COUNTIF(PaO2_FiO2_t0 IS NULL), COUNT(*)) FROM `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables`;

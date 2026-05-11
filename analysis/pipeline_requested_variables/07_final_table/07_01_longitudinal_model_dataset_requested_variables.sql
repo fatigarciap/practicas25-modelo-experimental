@@ -96,7 +96,8 @@ SELECT
   sev_daily.mechanical_ventilation,
   sev_daily.vasopressors,
 
-  resp.FiO2_t0
+  resp.FiO2_t0,
+  resp.PaO2_FiO2_t0
 FROM base b
 LEFT JOIN labels y
   ON b.stay_id = y.stay_id
