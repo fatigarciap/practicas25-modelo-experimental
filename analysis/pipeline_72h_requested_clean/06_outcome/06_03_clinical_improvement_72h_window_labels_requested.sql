@@ -1,10 +1,11 @@
--- Build 72h clinical improvement labels for the longitudinal requested pipeline.
--- For predictors measured in window X, the outcome is measured in window X+1.
--- This temporal shift avoids leakage from same-window dynamic predictors.
--- Daily internal flags are used only to construct the outcome, never as predictors.
+-- Build the ordinal longitudinal 72h outcome for each observation window.
+-- Unit: one row per stay_id + window_idx.
+-- clinical_status_72h is the state observed inside the current 72h window.
+-- clinical_status_72h_next is created with LEAD(...) within stay_id.
+-- Daily outcome internals are used only here and are not analytical variables.
 
-CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.clinical_improvement_72h_window_labels_requested` AS
-WITH current_windows AS (
+CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.clinical_status_72h_window_labels_requested` AS
+WITH windows AS (
   SELECT
     subject_id,
     hadm_id,
@@ -12,27 +13,9 @@ WITH current_windows AS (
     window_idx,
     window_start,
     window_end,
+    has_full_72h_window,
     deathtime
   FROM `strange-math-456415-c3.mimic_analysis.base_windows_72h_requested`
-),
-window_pairs AS (
-  SELECT
-    b.subject_id,
-    b.hadm_id,
-    b.stay_id,
-    b.window_idx,
-    b.window_start,
-    b.window_end,
-    next_b.window_idx AS outcome_window_idx,
-    next_b.window_start AS outcome_window_start,
-    next_b.window_end AS outcome_window_end,
-    next_b.has_full_72h_window AS outcome_has_full_72h_window,
-    next_b.deathtime,
-    CASE WHEN next_b.window_idx IS NOT NULL THEN 1 ELSE 0 END AS has_future_window
-  FROM current_windows b
-  LEFT JOIN `strange-math-456415-c3.mimic_analysis.base_windows_72h_requested` next_b
-    ON b.stay_id = next_b.stay_id
-   AND next_b.window_idx = b.window_idx + 1
 ),
 daily_windows AS (
   SELECT DISTINCT
@@ -64,55 +47,60 @@ daily_outcomes_with_windows AS (
     ON dw.stay_id = dout.stay_id
    AND dw.day_idx = dout.day_idx
 ),
-outcome_agg AS (
+window_outcome_agg AS (
   SELECT
-    wp.stay_id,
-    wp.window_idx,
-    COUNT(d.day_idx) AS n_daily_outcome_rows_in_outcome_window,
-    COUNTIF(d.sustained_improvement = 1) AS n_sustained_improvement_days_in_outcome_window
-  FROM window_pairs wp
+    w.stay_id,
+    w.window_idx,
+    COUNT(d.day_idx) AS n_daily_outcome_rows_in_window,
+    COUNTIF(d.sustained_improvement = 1) AS n_sustained_improvement_days_in_window
+  FROM windows w
   LEFT JOIN daily_outcomes_with_windows d
-    ON wp.stay_id = d.stay_id
-   AND d.daily_window_start < wp.outcome_window_end
-   AND d.daily_window_end > wp.outcome_window_start
+    ON w.stay_id = d.stay_id
+   AND d.daily_window_start < w.window_end
+   AND d.daily_window_end > w.window_start
   GROUP BY
-    wp.stay_id,
-    wp.window_idx
+    w.stay_id,
+    w.window_idx
 ),
-classified AS (
+current_status AS (
   SELECT
-    wp.subject_id,
-    wp.hadm_id,
-    wp.stay_id,
-    wp.window_idx,
-    wp.window_start,
-    wp.window_end,
-    wp.outcome_window_idx,
-    wp.outcome_window_start,
-    wp.outcome_window_end,
-    wp.has_future_window,
-    COALESCE(oa.n_daily_outcome_rows_in_outcome_window, 0) AS n_daily_outcome_rows_in_outcome_window,
-    COALESCE(oa.n_sustained_improvement_days_in_outcome_window, 0) AS n_sustained_improvement_days_in_outcome_window,
+    w.subject_id,
+    w.hadm_id,
+    w.stay_id,
+    w.window_idx,
+    w.window_start,
+    w.window_end,
+    w.has_full_72h_window,
+    COALESCE(a.n_daily_outcome_rows_in_window, 0) AS n_daily_outcome_rows_in_window,
+    COALESCE(a.n_sustained_improvement_days_in_window, 0) AS n_sustained_improvement_days_in_window,
     CASE
-      WHEN wp.has_future_window = 0 THEN 0
-      WHEN wp.deathtime IS NOT NULL
-       AND wp.deathtime >= wp.outcome_window_start
-       AND wp.deathtime < wp.outcome_window_end THEN 1
+      WHEN w.deathtime IS NOT NULL
+       AND w.deathtime >= w.window_start
+       AND w.deathtime < w.window_end THEN 1
       ELSE 0
-    END AS death_in_outcome_window,
+    END AS death_in_window,
     CASE
-      WHEN wp.has_future_window = 0 THEN NULL
-      WHEN wp.outcome_has_full_72h_window = 0 THEN NULL
-      WHEN wp.deathtime IS NOT NULL
-       AND wp.deathtime >= wp.outcome_window_start
-       AND wp.deathtime < wp.outcome_window_end THEN NULL
-      WHEN COALESCE(oa.n_sustained_improvement_days_in_outcome_window, 0) > 0 THEN 1
-      ELSE 0
-    END AS clinical_improvement_72h
-  FROM window_pairs wp
-  LEFT JOIN outcome_agg oa
-    ON wp.stay_id = oa.stay_id
-   AND wp.window_idx = oa.window_idx
+      WHEN w.deathtime IS NOT NULL
+       AND w.deathtime >= w.window_start
+       AND w.deathtime < w.window_end THEN 'death'
+      WHEN COALESCE(a.n_sustained_improvement_days_in_window, 0) > 0 THEN 'improvement'
+      WHEN w.has_full_72h_window = 1 THEN 'no_improvement'
+      ELSE NULL
+    END AS clinical_status_72h
+  FROM windows w
+  LEFT JOIN window_outcome_agg a
+    ON w.stay_id = a.stay_id
+   AND w.window_idx = a.window_idx
+),
+shifted AS (
+  SELECT
+    *,
+    LEAD(window_idx) OVER (PARTITION BY stay_id ORDER BY window_idx) AS next_window_idx,
+    LEAD(window_start) OVER (PARTITION BY stay_id ORDER BY window_idx) AS next_window_start,
+    LEAD(window_end) OVER (PARTITION BY stay_id ORDER BY window_idx) AS next_window_end,
+    LEAD(has_full_72h_window) OVER (PARTITION BY stay_id ORDER BY window_idx) AS next_has_full_72h_window,
+    LEAD(clinical_status_72h) OVER (PARTITION BY stay_id ORDER BY window_idx) AS clinical_status_72h_next
+  FROM current_status
 )
 SELECT
   subject_id,
@@ -121,19 +109,25 @@ SELECT
   window_idx,
   window_start,
   window_end,
-  outcome_window_idx,
-  outcome_window_start,
-  outcome_window_end,
-  has_future_window,
-  clinical_improvement_72h,
+  has_full_72h_window,
+  clinical_status_72h,
+  clinical_status_72h_next,
+  next_window_idx,
+  next_window_start,
+  next_window_end,
+  CASE WHEN next_window_idx IS NOT NULL THEN 1 ELSE 0 END AS has_next_window,
+  COALESCE(next_has_full_72h_window, 0) AS next_has_full_72h_window,
   CASE
-    WHEN has_future_window = 0 THEN 'censored_or_incomplete'
-    WHEN death_in_outcome_window = 1 THEN 'death'
-    WHEN clinical_improvement_72h = 1 THEN 'improvement'
-    WHEN clinical_improvement_72h = 0 THEN 'no_improvement'
-    ELSE 'censored_or_incomplete'
-  END AS clinical_status_72h,
-  n_daily_outcome_rows_in_outcome_window,
-  n_sustained_improvement_days_in_outcome_window,
-  CASE WHEN has_future_window = 1 THEN 1 ELSE 0 END AS outcome_from_next_window
-FROM classified;
+    WHEN next_window_idx = window_idx + 1
+     AND clinical_status_72h_next IS NOT NULL THEN 1
+    ELSE 0
+  END AS has_valid_next_status,
+  n_daily_outcome_rows_in_window,
+  n_sustained_improvement_days_in_window,
+  death_in_window
+FROM shifted;
+
+-- Backward-compatible table name for older run orders.
+CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.clinical_improvement_72h_window_labels_requested` AS
+SELECT *
+FROM `strange-math-456415-c3.mimic_analysis.clinical_status_72h_window_labels_requested`;

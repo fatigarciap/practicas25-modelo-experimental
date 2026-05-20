@@ -1,3 +1,7 @@
+-- OBSOLETE for the publication-oriented 72h longitudinal dataset.
+-- Kept for traceability only. Use
+-- 06_outcome/06_03_clinical_improvement_72h_window_labels_requested.sql instead.
+
 CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.clinical_improvement_72h_labels_requested` AS
 SELECT
   subject_id,

@@ -1,10 +1,9 @@
--- Final MVP 72h longitudinal model dataset.
+-- Final longitudinal 72h analytical dataset.
 -- Unit: one row per stay_id + window_idx.
--- Dynamic predictors are measured in current window X.
--- Outcomes are taken from the next window X+1 via the precomputed labels table.
--- This temporal alignment avoids the main same-window leakage risk.
+-- Dynamic variables are measured in the current window t.
+-- The analytical outcome is clinical_status_72h_next, observed in window t+1.
 
-CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.longitudinal_72h_model_dataset_requested` AS
+CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.longitudinal_72h_dataset_requested` AS
 WITH base AS (
   SELECT
     subject_id,
@@ -20,11 +19,6 @@ WITH base AS (
     specimen_type,
     organism_name,
     is_monomicrobial_event,
-    n_abx_t0,
-    spectrum_level_t0,
-    has_broad_t0,
-    has_gp_resistant_t0,
-    has_gn_mdr_t0,
     window_idx,
     window_start,
     window_end,
@@ -34,25 +28,23 @@ WITH base AS (
     has_full_72h_window
   FROM `strange-math-456415-c3.mimic_analysis.base_windows_72h_requested`
 ),
-features AS (
+window_variables AS (
   SELECT
     stay_id,
     window_idx,
-    HR_mean_72h,
-    MAP_mean_72h,
-    SysBP_mean_72h,
-    DiasBP_mean_72h,
-    Temp_mean_72h,
-    RR_mean_72h,
-    SpO2_mean_72h,
-    FiO2_mean_72h,
-    WBC_mean_72h,
-    Lactate_mean_72h,
-    Creatinine_mean_72h,
-    Bilirubin_mean_72h,
-    Platelets_mean_72h,
-    Hgb_mean_72h,
-    spo2fio2_ratio_mean_72h,
+    n_abx_window,
+    spectrum_level_window,
+    HR_median_window,
+    MAP_median_window,
+    RR_median_window,
+    SpO2_median_window,
+    Temp_median_window,
+    WBC_median_window,
+    Lactate_median_window,
+    Creatinine_median_window,
+    Bilirubin_median_window,
+    FiO2_median_window,
+    PaO2_FiO2_median_window,
     n_daily_rows_in_window,
     n_days_with_HR,
     n_days_with_MAP,
@@ -61,30 +53,29 @@ features AS (
     n_days_with_spo2fio2
   FROM `strange-math-456415-c3.mimic_analysis.window_features_72h_requested`
 ),
-severity AS (
+severity_support_window AS (
   SELECT
     stay_id,
     window_idx,
     SOFA_max_72h,
     SOFA_mean_72h,
-    mechanical_ventilation_72h,
-    vasopressors_72h
+    mechanical_ventilation_window,
+    vasopressors_window
   FROM `strange-math-456415-c3.mimic_analysis.window_severity_support_72h_requested`
 ),
 labels AS (
   SELECT
     stay_id,
     window_idx,
-    outcome_window_idx,
-    outcome_window_start,
-    outcome_window_end,
-    has_future_window,
-    clinical_improvement_72h,
     clinical_status_72h,
-    n_daily_outcome_rows_in_outcome_window,
-    n_sustained_improvement_days_in_outcome_window,
-    outcome_from_next_window
-  FROM `strange-math-456415-c3.mimic_analysis.clinical_improvement_72h_window_labels_requested`
+    clinical_status_72h_next,
+    next_window_idx,
+    next_window_start,
+    next_window_end,
+    has_next_window,
+    next_has_full_72h_window,
+    has_valid_next_status
+  FROM `strange-math-456415-c3.mimic_analysis.clinical_status_72h_window_labels_requested`
 )
 SELECT
   b.subject_id,
@@ -104,21 +95,12 @@ SELECT
   b.window_minutes_observed,
   b.window_seconds_observed,
   b.has_full_72h_window,
-  b.specimen_type,
-  b.organism_name,
-  b.is_monomicrobial_event,
-
-  b.n_abx_t0,
-  b.spectrum_level_t0,
-  b.has_broad_t0,
-  b.has_gp_resistant_t0,
-  b.has_gn_mdr_t0,
-  abx.n_abx_at_start,
-  abx.spectrum_level_at_start,
-  abx.has_broad_at_start,
-  abx.has_gp_resistant_at_start,
-  abx.has_gn_mdr_at_start,
-  abx.prior_antibiotics_before_start,
+  l.next_window_idx,
+  l.next_window_start,
+  l.next_window_end,
+  COALESCE(l.has_next_window, 0) AS has_next_window,
+  COALESCE(l.next_has_full_72h_window, 0) AS next_has_full_72h_window,
+  COALESCE(l.has_valid_next_status, 0) AS has_valid_next_status,
 
   demo.age,
   demo.sex,
@@ -142,59 +124,61 @@ SELECT
   demo.comorb_metastatic_solid_tumor_bin,
   demo.comorb_aids_bin,
   demo.charlson_index,
-
+  sev_base.SAPS,
   micro.microorganism,
   micro.infection_site,
   micro.bacteremia,
   micro.polymicrobial_infection,
   acq.infection_acquisition_type,
-  sev_base.SAPS,
+  abx.n_abx_at_start,
+  abx.spectrum_level_at_start,
+  abx.has_broad_at_start,
+  abx.has_gp_resistant_at_start,
+  abx.has_gn_mdr_at_start,
+  abx.prior_antibiotics_before_start,
 
-  f.HR_mean_72h,
-  f.MAP_mean_72h,
-  f.SysBP_mean_72h,
-  f.DiasBP_mean_72h,
-  f.Temp_mean_72h,
-  f.RR_mean_72h,
-  f.SpO2_mean_72h,
-  f.FiO2_mean_72h,
-  f.WBC_mean_72h,
-  f.Lactate_mean_72h,
-  f.Creatinine_mean_72h,
-  f.Bilirubin_mean_72h,
-  f.Platelets_mean_72h,
-  f.Hgb_mean_72h,
-  f.spo2fio2_ratio_mean_72h,
-  f.n_daily_rows_in_window,
-  f.n_days_with_HR,
-  f.n_days_with_MAP,
-  f.n_days_with_Lactate,
-  f.n_days_with_Creatinine,
-  f.n_days_with_spo2fio2,
+  wv.n_abx_window,
+  wv.spectrum_level_window,
+  CASE
+    WHEN wv.n_abx_window > 0 THEN 1
+    ELSE 0
+  END AS has_abx_window,
+  CASE
+    WHEN wv.n_abx_window = 0 THEN 0
+    ELSE wv.spectrum_level_window
+  END AS spectrum_level_window_filled,
+  wv.HR_median_window,
+  wv.MAP_median_window,
+  wv.RR_median_window,
+  wv.SpO2_median_window,
+  wv.Temp_median_window,
+  wv.WBC_median_window,
+  wv.Lactate_median_window,
+  wv.Creatinine_median_window,
+  wv.Bilirubin_median_window,
+  wv.FiO2_median_window,
+  wv.PaO2_FiO2_median_window,
+  ss.mechanical_ventilation_window,
+  ss.vasopressors_window,
 
-  sev.SOFA_max_72h,
-  sev.SOFA_mean_72h,
-  sev.mechanical_ventilation_72h,
-  sev.vasopressors_72h,
-
-  l.outcome_window_idx,
-  l.outcome_window_start,
-  l.outcome_window_end,
-  l.has_future_window,
-  l.clinical_improvement_72h,
   l.clinical_status_72h,
-  l.n_daily_outcome_rows_in_outcome_window,
-  l.n_sustained_improvement_days_in_outcome_window,
+  l.clinical_status_72h_next,
 
-  1 AS predictors_from_current_window,
-  COALESCE(l.outcome_from_next_window, 0) AS outcome_from_next_window
+  wv.n_daily_rows_in_window AS qc_n_daily_rows_in_window,
+  wv.n_days_with_HR AS qc_n_days_with_HR,
+  wv.n_days_with_MAP AS qc_n_days_with_MAP,
+  wv.n_days_with_Lactate AS qc_n_days_with_Lactate,
+  wv.n_days_with_Creatinine AS qc_n_days_with_Creatinine,
+  wv.n_days_with_spo2fio2 AS qc_n_days_with_spo2fio2,
+  ss.SOFA_max_72h AS qc_SOFA_max_72h,
+  ss.SOFA_mean_72h AS qc_SOFA_mean_72h
 FROM base b
-LEFT JOIN features f
-  ON b.stay_id = f.stay_id
- AND b.window_idx = f.window_idx
-LEFT JOIN severity sev
-  ON b.stay_id = sev.stay_id
- AND b.window_idx = sev.window_idx
+LEFT JOIN window_variables wv
+  ON b.stay_id = wv.stay_id
+ AND b.window_idx = wv.window_idx
+LEFT JOIN severity_support_window ss
+  ON b.stay_id = ss.stay_id
+ AND b.window_idx = ss.window_idx
 LEFT JOIN labels l
   ON b.stay_id = l.stay_id
  AND b.window_idx = l.window_idx
@@ -208,3 +192,12 @@ LEFT JOIN `strange-math-456415-c3.mimic_analysis.infection_acquisition_requested
   ON b.stay_id = acq.stay_id
 LEFT JOIN `strange-math-456415-c3.mimic_analysis.severity_support_baseline_requested` sev_base
   ON b.stay_id = sev_base.stay_id;
+
+CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.analytical_dataset_72h_requested` AS
+SELECT *
+FROM `strange-math-456415-c3.mimic_analysis.longitudinal_72h_dataset_requested`;
+
+-- Backward-compatible table name for older notebooks/runbooks.
+CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.longitudinal_72h_model_dataset_requested` AS
+SELECT *
+FROM `strange-math-456415-c3.mimic_analysis.longitudinal_72h_dataset_requested`;

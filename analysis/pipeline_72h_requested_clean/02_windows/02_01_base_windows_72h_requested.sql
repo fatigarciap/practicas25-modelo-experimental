@@ -34,10 +34,10 @@ planned_windows AS (
   SELECT
     b.*,
     window_idx,
-    TIMESTAMP_ADD(b.t0, INTERVAL 72 * (window_idx - 1) HOUR) AS window_start,
-    TIMESTAMP_ADD(b.t0, INTERVAL 72 * window_idx HOUR) AS planned_window_end
+    TIMESTAMP_ADD(b.t0, INTERVAL 72 * window_idx HOUR) AS window_start,
+    TIMESTAMP_ADD(b.t0, INTERVAL 72 * (window_idx + 1) HOUR) AS planned_window_end
   FROM basal b
-  CROSS JOIN UNNEST(GENERATE_ARRAY(1, 10)) AS window_idx
+  CROSS JOIN UNNEST(GENERATE_ARRAY(0, 9)) AS window_idx
 ),
 final_windows AS (
   SELECT

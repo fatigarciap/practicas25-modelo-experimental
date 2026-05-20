@@ -1,5 +1,5 @@
--- Aggregate legacy daily predictors into non-overlapping 72h windows.
--- These are dynamic predictors measured in window X.
+-- Aggregate legacy daily measurements into non-overlapping 72h windows.
+-- These are dynamic window variables measured in window t.
 -- No outcome, labels, or improvement flags are calculated or read here.
 
 CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.window_features_72h_requested` AS
@@ -40,6 +40,21 @@ daily_features AS (
     spo2fio2_ratio
   FROM `strange-math-456415-c3.mimic_analysis.daily_features_requested`
 ),
+antibiotics_window AS (
+  SELECT
+    w.stay_id,
+    w.window_idx,
+    COUNT(DISTINCT r.abx_name_std) AS n_abx_window,
+    MAX(SAFE_CAST(r.spectrum_level AS INT64)) AS spectrum_level_window
+  FROM windows_72h w
+  LEFT JOIN `strange-math-456415-c3.mimic_analysis.baseline_regimen_detail_requested` r
+    ON w.stay_id = r.stay_id
+   AND CAST(r.start_ts AS TIMESTAMP) < w.window_end
+   AND COALESCE(CAST(r.stop_ts AS TIMESTAMP), w.window_end) > w.window_start
+  GROUP BY
+    w.stay_id,
+    w.window_idx
+),
 features_with_daily_windows AS (
   SELECT
     dw.stay_id,
@@ -71,21 +86,23 @@ SELECT
   w.window_idx,
   w.window_start,
   w.window_end,
-  AVG(CAST(d.HR_median AS FLOAT64)) AS HR_mean_72h,
-  AVG(CAST(d.MAP_median AS FLOAT64)) AS MAP_mean_72h,
-  AVG(CAST(d.SysBP_median AS FLOAT64)) AS SysBP_mean_72h,
-  AVG(CAST(d.DiasBP_median AS FLOAT64)) AS DiasBP_mean_72h,
-  AVG(CAST(d.Temp_median AS FLOAT64)) AS Temp_mean_72h,
-  AVG(CAST(d.RR_median AS FLOAT64)) AS RR_mean_72h,
-  AVG(CAST(d.SpO2_median AS FLOAT64)) AS SpO2_mean_72h,
-  AVG(CAST(d.FiO2_median AS FLOAT64)) AS FiO2_mean_72h,
-  AVG(CAST(d.WBC_median AS FLOAT64)) AS WBC_mean_72h,
-  AVG(CAST(d.Lactate_median AS FLOAT64)) AS Lactate_mean_72h,
-  AVG(CAST(d.Creatinine_median AS FLOAT64)) AS Creatinine_mean_72h,
-  AVG(CAST(d.Bilirubin_median AS FLOAT64)) AS Bilirubin_mean_72h,
-  AVG(CAST(d.Platelets_median AS FLOAT64)) AS Platelets_mean_72h,
-  AVG(CAST(d.Hgb_median AS FLOAT64)) AS Hgb_mean_72h,
-  AVG(CAST(d.spo2fio2_ratio AS FLOAT64)) AS spo2fio2_ratio_mean_72h,
+  COALESCE(a.n_abx_window, 0) AS n_abx_window,
+  a.spectrum_level_window,
+  APPROX_QUANTILES(CAST(d.HR_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS HR_median_window,
+  APPROX_QUANTILES(CAST(d.MAP_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS MAP_median_window,
+  APPROX_QUANTILES(CAST(d.SysBP_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS SysBP_median_window,
+  APPROX_QUANTILES(CAST(d.DiasBP_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS DiasBP_median_window,
+  APPROX_QUANTILES(CAST(d.Temp_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS Temp_median_window,
+  APPROX_QUANTILES(CAST(d.RR_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS RR_median_window,
+  APPROX_QUANTILES(CAST(d.SpO2_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS SpO2_median_window,
+  APPROX_QUANTILES(CAST(d.FiO2_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS FiO2_median_window,
+  APPROX_QUANTILES(CAST(d.WBC_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS WBC_median_window,
+  APPROX_QUANTILES(CAST(d.Lactate_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS Lactate_median_window,
+  APPROX_QUANTILES(CAST(d.Creatinine_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS Creatinine_median_window,
+  APPROX_QUANTILES(CAST(d.Bilirubin_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS Bilirubin_median_window,
+  APPROX_QUANTILES(CAST(d.Platelets_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS Platelets_median_window,
+  APPROX_QUANTILES(CAST(d.Hgb_median AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS Hgb_median_window,
+  APPROX_QUANTILES(CAST(d.spo2fio2_ratio AS FLOAT64), 100 IGNORE NULLS)[SAFE_OFFSET(50)] AS PaO2_FiO2_median_window,
   COUNT(d.day_idx) AS n_daily_rows_in_window,
   COUNTIF(d.HR_median IS NOT NULL) AS n_days_with_HR,
   COUNTIF(d.MAP_median IS NOT NULL) AS n_days_with_MAP,
@@ -97,8 +114,13 @@ LEFT JOIN features_with_daily_windows d
   ON w.stay_id = d.stay_id
  AND d.daily_day_start < w.window_end
  AND d.daily_day_end > w.window_start
+LEFT JOIN antibiotics_window a
+  ON w.stay_id = a.stay_id
+ AND w.window_idx = a.window_idx
 GROUP BY
   w.stay_id,
   w.window_idx,
   w.window_start,
-  w.window_end;
+  w.window_end,
+  a.n_abx_window,
+  a.spectrum_level_window;

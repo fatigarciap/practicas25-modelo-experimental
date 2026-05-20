@@ -1,3 +1,7 @@
+-- OBSOLETE for the publication-oriented 72h longitudinal dataset.
+-- Kept for traceability only. Use
+-- 07_final_table/07_01_longitudinal_72h_model_dataset_requested.sql instead.
+
 CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.longitudinal_model_dataset_requested_variables` AS
 WITH base AS (
   SELECT

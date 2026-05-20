@@ -1,6 +1,6 @@
--- Aggregate severity and organ-support predictors within each 72h window X.
+-- Aggregate severity and organ-support variables within each 72h window t.
 -- No outcome, labels, or improvement flags are calculated or read here.
--- The X -> X+1 temporal alignment is applied later in the final model table.
+-- The t -> t+1 temporal alignment is applied later in the final analytical table.
 
 CREATE OR REPLACE TABLE `strange-math-456415-c3.mimic_analysis.window_severity_support_72h_requested` AS
 WITH windows AS (
@@ -82,8 +82,8 @@ SELECT
   w.window_end,
   s.SOFA_max_72h,
   s.SOFA_mean_72h,
-  COALESCE(v.mechanical_ventilation_72h, 0) AS mechanical_ventilation_72h,
-  COALESCE(va.vasopressors_72h, 0) AS vasopressors_72h
+  COALESCE(v.mechanical_ventilation_72h, 0) AS mechanical_ventilation_window,
+  COALESCE(va.vasopressors_72h, 0) AS vasopressors_window
 FROM windows w
 LEFT JOIN sofa_window s
   ON w.stay_id = s.stay_id
