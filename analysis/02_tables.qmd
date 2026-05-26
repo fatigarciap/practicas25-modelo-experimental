@@ -1,0 +1,89 @@
+---
+title: "02 - Tablas descriptivas y publicación"
+format: html
+---
+
+# Objetivo
+
+Este documento recoge las tablas descriptivas del proyecto longitudinal AMR days desarrollado sobre MIMIC-IV, con especial foco en el flujo de cohorte tipo CONSORT y en la Tabla 1 basal validada.
+
+# Población descriptiva
+
+La Tabla 1 se construye a nivel de `stay_id`, usando una fila por estancia UCI basal. La unidad descriptiva de la Tabla 1 es la estancia UCI, no la ventana longitudinal. La población descriptiva incluye únicamente registros con `window_idx = 0` y `clinical_status_72h_next` no nulo, procedentes de `strange-math-456415-c3.mimic_analysis.longitudinal_72h_dataset_requested`.
+
+La tabla base validada es `strange-math-456415-c3.mimic_analysis.table1_baseline_stay_level_72h`. La población final contiene 2.877 estancias y 2.586 pacientes.
+
+# CONSORT / flujo de cohorte
+
+El flujo de cohorte final queda pendiente de consolidación con las cifras definitivas. Debe resumir, al menos, los siguientes pasos:
+
+- todas las estancias UCI MIMIC-IV;
+- candidatos microbiológicos;
+- evento índice;
+- T0 válido;
+- ventanas de 72h;
+- subconjunto analítico.
+
+# Tabla 1 basal
+
+La Tabla 1 basal está estratificada por `clinical_status_72h_next`, con tres grupos mutuamente excluyentes:
+
+- `death`;
+- `no_improvement`;
+- `improvement`.
+
+La estratificación usa el outcome desplazado a la siguiente ventana de 72 horas, de forma coherente con la estrategia anti-leakage del dataset.
+
+La construcción validada se realiza mediante los scripts oficiales ubicados en `analysis/sql/pipeline_72h_requested_clean/08_publ/02_table1/`:
+
+- `01_table1_baseline_stay_level_72h.sql`;
+- `02_table1_continuous_72h.sql`;
+- `03_table1_binary_72h.sql`;
+- `04_table1_multicategory_72h.sql`;
+- `05_table1_final_pivot_72h.sql`;
+- `06_qc_table1_72h.sql`.
+
+# Variables continuas
+
+Las variables continuas se resumen como mediana [RIQ] mediante `table1_continuous_72h`. Las variables principales incluidas son: edad, SAPS, `charlson_index`, MAP, lactato, creatinina, PaO2/FiO2, HR, RR, SpO2, temperatura, WBC, bilirrubina, FiO2, `n_abx_at_start` y `n_abx_window`.
+
+# Variables binarias
+
+Las variables binarias se resumen como n (%), incluyendo sexo masculino, bacteriemia, exposición antibiótica, soporte orgánico y comorbilidades relevantes.
+
+# Variables multicategoría
+
+Las variables multicategoría se resumen como n (%) por categoría. Incluyen `race`, `insurance`, `microorganism`, `infection_site`, `infection_acquisition_type`, `spectrum_level_at_start` y `spectrum_level_window_filled`.
+
+# Microorganismos
+
+`microorganism` se resume dentro del bloque multicategoría. El listado final de microorganismos debe validarse clínicamente antes de su uso en la versión final de publicación.
+
+# Tipos de muestra
+
+La inclusión de tipos de muestra queda pendiente, al no existir por ahora un script final específico dentro del bloque validado de Tabla 1.
+
+# Distribución del outcome
+
+La distribución validada de `clinical_status_72h_next` en la población de Tabla 1 es:
+
+- `death`: 101 (3.5%);
+- `no_improvement`: 2.077 (72.2%);
+- `improvement`: 699 (24.3%).
+
+# Exportación de tablas
+
+La tabla final está disponible en `strange-math-456415-c3.mimic_analysis.table1_stratified_72h_summary`.
+
+# QC Tabla 1
+
+El QC validado confirma que la tabla base contiene 2.877 filas, 2.877 estancias y 2.586 pacientes. Todas las observaciones corresponden a `window_idx = 0`, con `min_window_idx = 0` y `max_window_idx = 0`.
+
+No hay duplicados por `stay_id`. El pivot final no contiene filas completamente vacías. Las secciones finales incluyen 16 variables continuas, 27 variables binarias y 65 filas/categorías multicategoría.
+
+# Pendientes
+
+- Decidir si incluir `qc_SOFA_max_72h` y `qc_SOFA_mean_72h` como variables SOFA sin prefijo QC.
+- Preparar CONSORT final.
+- Decidir si crear exports CSV/XLSX.
+- Validar microorganismos/tipos de muestra con el equipo clínico.

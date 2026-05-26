@@ -1,0 +1,245 @@
+---
+title: "01 - Dataset longitudinal 72h"
+format: html
+---
+
+# Objetivo
+
+Este documento describe de forma reproducible la construcción del dataset longitudinal de ventanas de 72 horas del proyecto longitudinal AMR days desarrollado sobre MIMIC-IV v3.1, BigQuery y SQL.
+
+El objetivo de este documento no es presentar modelos predictivos, sino documentar la generación de la cohorte analítica y de la tabla model-ready final. En particular, resume la definición de cohorte, el evento microbiológico índice, T0, las ventanas longitudinales, las variables predictoras, la definición del outcome, el alineamiento temporal, las tablas oficiales generadas, el control de calidad y las decisiones metodológicas cerradas para la versión actual del dataset.
+
+# Fuente de datos y entorno
+
+El proyecto utiliza MIMIC-IV v3.1 consultado mediante BigQuery. Las tablas derivadas oficiales se almacenan en el dataset `strange-math-456415-c3.mimic_analysis`.
+
+| Elemento | Valor |
+|---|---|
+| Fuente de datos | MIMIC-IV v3.1 |
+| Motor de consulta | BigQuery |
+| Proyecto/dataset derivado | `strange-math-456415-c3.mimic_analysis` |
+| Unidad longitudinal | `stay_id + window_idx` |
+| Ventana temporal | 72 horas |
+| Tabla longitudinal oficial | `longitudinal_72h_dataset_requested` |
+| Tabla model-ready oficial | `longitudinal_72h_model_ready_final` |
+
+# Organización reproducible del pipeline SQL
+
+El pipeline SQL reproducible vive en `analysis/sql/pipeline_72h_requested_clean/`. La organización por bloques separa la selección de cohorte, la construcción temporal, la definición de variables y el ensamblaje final.
+
+| Bloque | Función |
+|---|---|
+| `00_cohort/` | Selección de cohorte inicial y candidatos |
+| `01_antibiotics_t0/` | Definición de antibióticos y T0 |
+| `02_windows/` | Construcción de ventanas longitudinales |
+| `03_events_outcome_only/` | Eventos clínicos relevantes |
+| `04_daily_features/` | Variables clínicas resumidas para ventanas |
+| `05_baseline_predictors/` | Predictores basales |
+| `06_outcome/` | Definición del estado clínico 72h |
+| `07_final_table/` | Ensamblaje longitudinal y tabla model-ready |
+| `08_publ/` | Tablas descriptivas/publicación |
+| `archive_old_sql/` | Scripts legacy no oficiales |
+
+`archive_old_sql/` conserva trazabilidad histórica, pero no forma parte del pipeline oficial actual. El script legacy `07_01_longitudinal_model_dataset_requested_variables.sql` queda archivado y no debe considerarse la fuente oficial de la tabla final.
+
+# Cohorte inicial y criterios generales
+
+La cohorte parte de estancias UCI de MIMIC-IV y se restringe a episodios con infección microbiológicamente documentada por microorganismos relevantes/MDR según los criterios implementados en SQL. Los criterios operativos exactos se mantienen en los scripts del pipeline y no se duplican aquí como SQL completo.
+
+| Métrica | Valor |
+|---|---:|
+| Estancias UCI en cohorte longitudinal final | 4.372 |
+| Pacientes únicos | 3.882 |
+| Ventanas longitudinales generadas | 19.394 |
+| Ventanas válidas para análisis/modelado | 13.070 |
+
+# Evento microbiológico índice
+
+Para cada estancia UCI se selecciona un evento microbiológico índice. Este evento sirve para anclar el episodio infeccioso y relacionarlo con el inicio del seguimiento clínico y terapéutico.
+
+Las variables microbiológicas e infecciosas derivadas incluyen:
+
+- `microorganism`;
+- `infection_site`;
+- `bacteremia`;
+- `polymicrobial_infection`;
+- `infection_acquisition_type`.
+
+El listado de microorganismos, tipos de muestra y variables infecciosas corresponde a la versión implementada en el pipeline SQL actual y define la cohorte final utilizada en este trabajo.
+
+# Definición de T0
+
+T0 es el punto de inicio del seguimiento clínico/terapéutico. Se define a partir del inicio de antibiótico sistémico en relación con el evento microbiológico índice.
+
+T0 es central para el diseño longitudinal porque alinea el episodio infeccioso, permite ordenar temporalmente los predictores, facilita la construcción de ventanas longitudinales homogéneas y evita mezclar información previa, simultánea y posterior al outcome.
+
+# Construcción de ventanas longitudinales de 72 horas
+
+Cada estancia se divide desde T0 en ventanas consecutivas no solapadas de 72 horas. La unidad de análisis del dataset longitudinal es `stay_id + window_idx`.
+
+| `window_idx` | Inicio | Fin |
+|---:|---|---|
+| 0 | T0 | T0 + 72h |
+| 1 | T0 + 72h | T0 + 144h |
+| 2 | T0 + 144h | T0 + 216h |
+
+En cada fila, las variables predictoras X(t) proceden de la ventana actual, mientras que el outcome Y(t+1) procede de la ventana siguiente.
+
+# Variables basales
+
+Las variables basales se asignan a todas las ventanas de una misma estancia. Representan características demográficas, clínicas, microbiológicas y terapéuticas iniciales.
+
+| Bloque | Variables principales |
+|---|---|
+| Demografía | `age`, `sex`, `race`, `insurance` |
+| Comorbilidad | `charlson_index` y comorbilidades binarias |
+| Microbiología/infección | `microorganism`, `infection_site`, `bacteremia`, `polymicrobial_infection`, `infection_acquisition_type` |
+| Antibióticos basales | `n_abx_at_start`, `spectrum_level_at_start`, `has_broad_at_start`, `has_gp_resistant_at_start`, `has_gn_mdr_at_start`, `prior_antibiotics_before_start` |
+| Severidad basal | SAPS |
+
+# Variables dinámicas por ventana
+
+Las variables dinámicas se resumen dentro de la ventana actual t. Reflejan el estado clínico, terapéutico y fisiológico observado durante cada bloque de 72 horas.
+
+| Bloque | Variables |
+|---|---|
+| Antibióticos en ventana | `n_abx_window`, `spectrum_level_window`, `has_abx_window`, `spectrum_level_window_filled` |
+| Constantes vitales | `HR_median_window`, `MAP_median_window`, `RR_median_window`, `SpO2_median_window`, `Temp_median_window` |
+| Laboratorio | `WBC_median_window`, `Lactate_median_window`, `Creatinine_median_window`, `Bilirubin_median_window` |
+| Soporte orgánico | `mechanical_ventilation_window`, `vasopressors_window`, `FiO2_median_window`, `PaO2_FiO2_median_window` |
+| Severidad longitudinal | Variables SOFA derivadas del pipeline, cuando están disponibles con la nomenclatura actual |
+
+`spectrum_level_window` puede ser NULL cuando no hay antibiótico activo o registrado en la ventana. `has_abx_window` indica si hay antibiótico en la ventana. `spectrum_level_window_filled` codifica 0 cuando no hay antibiótico y valores 1-4 cuando sí hay un nivel de espectro.
+
+| Variable | Interpretación |
+|---|---|
+| `has_abx_window` | 1 si hay antibiótico en la ventana, 0 si no |
+| `spectrum_level_window` | Nivel de espectro observado si hay antibiótico |
+| `spectrum_level_window_filled` | 0 si no hay antibiótico; 1-4 si hay antibiótico |
+
+# Definición del estado clínico en ventana
+
+`clinical_status_72h` representa el estado clínico observado dentro de una ventana de 72 horas.
+
+Categorías posibles:
+
+- `death`;
+- `no_improvement`;
+- `improvement`;
+- NULL si la ventana es incompleta y no existe evento observable.
+
+La prioridad clínica aplicada es:
+
+1. `death`;
+2. `improvement`;
+3. `no_improvement` si la ventana completa fue observada;
+4. NULL si no se puede evaluar.
+
+Pseudocódigo resumido:
+
+```sql
+CASE
+  WHEN death_in_window = 1 THEN 'death'
+  WHEN n_sustained_improvement_days_in_window > 0 THEN 'improvement'
+  WHEN has_full_72h_window = 1 THEN 'no_improvement'
+  ELSE NULL
+END AS clinical_status_72h
+```
+
+# Alineamiento temporal y outcome desplazado
+
+Para evitar leakage temporal, las variables predictoras se miden en la ventana actual t y el outcome se mide en la siguiente ventana t+1. Por ello, la tabla model-ready no usa `clinical_status_72h` de la misma fila como outcome, sino sus versiones desplazadas a la ventana siguiente.
+
+| Outcome | Tipo | Definición |
+|---|---|---|
+| `clinical_improvement_72h_next` | Binario principal | `improvement = 1`; `death/no_improvement = 0` |
+| `clinical_status_72h_next` | Categórico secundario | `death`, `no_improvement`, `improvement` |
+| `clinical_status_72h_next_ord` | Ordinal secundario | `death = 0`; `no_improvement = 1`; `improvement = 2` |
+
+# Ensamblaje de la tabla longitudinal
+
+La tabla longitudinal oficial integra cohorte, T0, ventanas de 72 horas, variables basales, variables dinámicas y estado clínico por ventana.
+
+| Elemento | Valor |
+|---|---|
+| Tabla oficial | `strange-math-456415-c3.mimic_analysis.longitudinal_72h_dataset_requested` |
+| Unidad de análisis | `stay_id + window_idx` |
+| Ventanas totales | 19.394 |
+| Estancias UCI | 4.372 |
+| Pacientes únicos | 3.882 |
+
+Los alias legacy `analytical_dataset_72h_requested` y `longitudinal_72h_model_dataset_requested` pueden aparecer en documentación antigua, pero no son tablas oficiales del pipeline actual.
+
+# Tabla model-ready final
+
+La tabla model-ready final añade los outcomes desplazados y restringe el conjunto analítico a ventanas con `clinical_status_72h_next` no nulo.
+
+| Elemento | Valor |
+|---|---|
+| Tabla oficial | `strange-math-456415-c3.mimic_analysis.longitudinal_72h_model_ready_final` |
+| Ventanas válidas | 13.070 |
+| Outcome principal | `clinical_improvement_72h_next` |
+| Outcomes secundarios | `clinical_status_72h_next`, `clinical_status_72h_next_ord` |
+
+Distribución del outcome categórico en ventanas válidas:
+
+| `clinical_status_72h_next` | n |
+|---|---:|
+| `death` | 549 |
+| `no_improvement` | 10.909 |
+| `improvement` | 1.612 |
+| Total válido | 13.070 |
+
+# Scripts oficiales y trazabilidad
+
+Los scripts finales oficiales para la tabla longitudinal y la tabla model-ready se encuentran en `analysis/sql/pipeline_72h_requested_clean/07_final_table/`.
+
+| Script | Output principal |
+|---|---|
+| `01_longitudinal_72h_dataset_requested_FINAL.sql` | `longitudinal_72h_dataset_requested` |
+| `02_longitudinal_72h_model_ready_final.sql` | `longitudinal_72h_model_ready_final` |
+| `03_qc_model_ready_final.sql` | QC de tabla model-ready |
+
+La Tabla 1 basal es un output derivado de la tabla longitudinal y se documenta por separado en `analysis/02_tables.qmd`.
+
+# Control de calidad validado
+
+El QC validado confirma la coherencia entre la tabla longitudinal y la tabla model-ready final:
+
+| Comprobación | Resultado validado |
+|---|---:|
+| Estancias UCI en cohorte longitudinal final | 4.372 |
+| Pacientes únicos | 3.882 |
+| Ventanas longitudinales totales | 19.394 |
+| Ventanas con `clinical_status_72h_next` no nulo | 13.070 |
+| `death` en outcome desplazado | 549 |
+| `no_improvement` en outcome desplazado | 10.909 |
+| `improvement` en outcome desplazado | 1.612 |
+
+El control de calidad específico de la tabla model-ready queda centralizado en `03_qc_model_ready_final.sql`.
+
+# Decisiones metodológicas
+
+- La unidad de análisis longitudinal es `stay_id + window_idx`.
+- Las ventanas son consecutivas, no solapadas y de 72 horas desde T0.
+- Los predictores se calculan en la ventana actual t.
+- Los outcomes se desplazan a la siguiente ventana t+1 para reducir leakage temporal.
+- `clinical_improvement_72h_next` es el outcome binario principal.
+- `clinical_status_72h_next` y `clinical_status_72h_next_ord` se conservan como outcomes secundarios.
+- Los scripts legacy archivados se conservan por trazabilidad, pero no definen las tablas oficiales actuales.
+
+# Outputs
+
+| Output | Descripción |
+|---|---|
+| `longitudinal_72h_dataset_requested` | Dataset longitudinal oficial con una fila por `stay_id + window_idx` |
+| `longitudinal_72h_model_ready_final` | Tabla final para análisis/modelado con outcomes desplazados |
+| `table1_stratified_72h_summary` | Output descriptivo derivado documentado en `analysis/02_tables.qmd` |
+
+# Alcance metodológico y decisiones cerradas
+
+La versión actual del dataset queda definida por los criterios implementados en el pipeline SQL reproducible. Las tablas oficiales del proyecto son `longitudinal_72h_dataset_requested` y `longitudinal_72h_model_ready_final`. Los aliases legacy pueden existir por compatibilidad histórica, pero no se consideran tablas oficiales de análisis.
+
+Los scripts archivados en `archive_old_sql/` se conservan únicamente por trazabilidad y no forman parte del pipeline oficial actual. La Tabla 1 y los descriptivos se documentan en `analysis/02_tables.qmd`. La preparación para modelado se documentará en `analysis/03_model.qmd`, manteniendo la separación entre construcción del dataset, descripción de la cohorte y análisis predictivo.
+
+Las variables SOFA longitudinales mantienen la nomenclatura actual del pipeline y no se renombran en este documento. Cualquier transformación posterior para modelado deberá documentarse explícitamente en el bloque de preprocessing.

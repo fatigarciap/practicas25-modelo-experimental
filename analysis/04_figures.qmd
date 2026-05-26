@@ -1,0 +1,24 @@
+---
+title: "04 - Figuras"
+format: html
+---
+
+# Objetivo
+
+# Figura CONSORT
+
+# Distribución de ventanas por estancia
+
+# Distribución del outcome
+
+# Microorganismos
+
+# Tipos de muestra
+
+# Missingness
+
+# Figuras de performance de modelos
+
+# Exportación de figuras
+
+# Pendientes

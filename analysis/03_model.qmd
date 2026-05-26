@@ -1,0 +1,32 @@
+---
+title: "03 - Modelado"
+format: html
+---
+
+# Objetivo predictivo
+
+# Dataset de entrada
+
+# Unidad de análisis
+
+# Outcomes
+
+# Variables candidatas
+
+# Variables excluidas por leakage
+
+# Missingness para modelado
+
+# Imputación
+
+# Encoding
+
+# Split train/test agrupado
+
+# Baseline models
+
+# Evaluación
+
+# Modelos longitudinales futuros
+
+# Pendientes
